@@ -1,7 +1,8 @@
 // YOUR CODE HERE:
 var app = {
-  server: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages'
-  
+  server: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
+  currentRoom: 'lobby',
+  rooms: ['lobby']
 };
 
 $(document).ready(function() {
@@ -10,10 +11,9 @@ $(document).ready(function() {
 
 app.init = function() {
   //initiate the stuff
+  app.fetch();
   $('#refreshButton').on('click', () => {
-    app.clearMessages();
     app.fetch();
-    //fetch messages
   });
   $('#sendButton').on('click', () => {
     // send what is filled out the form
@@ -22,22 +22,52 @@ app.init = function() {
     if (username !== '' && messageBody !== '') {
       var messageObj = {
         username: username,
-        text: messageBody 
+        text: messageBody, 
       };
+      if (app.currentRoom !== 'newRoom') {
+        messageObj.roomname = app.currentRoom;
+      } else {
+        messageObj.roomname = $('#roomInput').val();
+        // user needs to see messages from the new room
+        // make newly create room to be the selected room
+      }
+      // messageObj.roomname = (app.currentRoom !== 'newRoom') ? app.currentRoom : $('#roomInput').val();
       app.send(messageObj);
     }
   });
+  $('#roomSelect').change((e) => {
+    let selectedName = $('#roomSelect').find(':selected').val();
+    if (selectedName === 'newRoom') {
+      $('#roomInputTitle').show();
+      $('#roomInput').show();
+    } else {
+      $('#roomInputTitle').hide();
+      $('#roomInput').hide();
+    }
+    app.currentRoom = selectedName;
+    console.log('selected: ' + app.currentRoom);
+    app.fetch();
+  });
+  // setInterval(app.fetch, 5000);
+};
+
+app.clearForm = function() {
+  $('#usernameInput').val('');
+  $('#messageInput').val('');
+  $('#roomInput').val('');
 };
 
 app.send = function(message) {
-  //send a message
   $.ajax({
     // This is the url you should use to communicate with the parse API server.
     url: app.server,
     type: 'POST',
     data: JSON.stringify(message),
+    // data: message,
     contentType: 'application/json',
     success: function (data) {
+      app.clearForm();
+      app.fetch();
       console.log('chatterbox: Message sent');
     },
     error: function (data) {
@@ -48,11 +78,26 @@ app.send = function(message) {
 };
 
 app.fetch = function() {
-  $.get(app.server, function(data) { //FYI ajax method defaults to GET
-    // console.log(data);
-    for (var i = 0; i < data.results.length; i++) {
-      console.log(data.results[i]);
-      app.renderMessage(data.results[i]);
+  console.log('started fetching');
+  console.time('fetch time');
+  $.ajax({
+    url: app.server, 
+    type: 'GET',
+    data: {
+      order: '-createdAt',
+    },
+    success: function(data) { //FYI ajax method defaults to GET
+      app.clearMessages();
+      console.log('cleared messages');
+      for (var i = 0; i < data.results.length; i++) {
+        app.renderMessage(data.results[i]);
+      }
+      console.timeEnd('fetch time');
+    },
+    error: function (data) {
+      // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
+      console.error('chatterbox: Failed to send message', data);
+      console.timeEnd('fetch time');
     }
   });
   
@@ -87,9 +132,9 @@ app.renderMessage = function(message) {
     ']': '&#93;'
   };
   
-  var escapedStr = '';
-  
-  if (message.text) {
+  message.roomname = message.roomname || 'lobby';
+  if (message.text && message.roomname === app.currentRoom) {
+    var escapedStr = '';
     for (var i = 0; i < message.text.length; i++) {
       if (escapers.hasOwnProperty(message.text[i])) {
         escapedStr += escapers[message.text[i]];
@@ -97,14 +142,20 @@ app.renderMessage = function(message) {
         escapedStr += message.text[i];
       }
     }
+    var messageNode = $('<p>' + escapedStr + '</p>');
+    $('#chats').append(messageNode);
   }
-  var messageNode = $('<p>' + escapedStr + '</p>');
-  $('#chats').prepend(messageNode);
+  app.renderRoom(message.roomname);
 };
 
 app.renderRoom = function(roomName) {
-  //grab all rooms from #roomSelector.children or sth
+  //grab all rooms from #roomSelector.children
   //check if it exists
-  $('#roomSelect').append(roomName);
+  if (!app.rooms.includes(roomName)) {
+    app.rooms.push(roomName);
+    var roomNode = $(`<option value="${roomName}">${roomName}</option>`);
+    $('#roomSelect').append(roomNode);
+  }
+  
 };
 
