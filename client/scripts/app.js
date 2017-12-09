@@ -1,6 +1,7 @@
 // YOUR CODE HERE:
 var app = {
-  server: 'http://parse.sfm8.hackreactor.com/'
+  server: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages'
+  
 };
 
 $(document).ready(function() {
@@ -9,15 +10,32 @@ $(document).ready(function() {
 
 app.init = function() {
   //initiate the stuff
+  $('#refreshButton').on('click', () => {
+    app.clearMessages();
+    app.fetch();
+    //fetch messages
+  });
+  $('#sendButton').on('click', () => {
+    // send what is filled out the form
+    var username = $('#usernameInput').val();
+    var messageBody = $('#messageInput').val();
+    if (username !== '' && messageBody !== '') {
+      var messageObj = {
+        username: username,
+        text: messageBody 
+      };
+      app.send(messageObj);
+    }
+  });
 };
 
 app.send = function(message) {
   //send a message
   $.ajax({
     // This is the url you should use to communicate with the parse API server.
-    url: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
+    url: app.server,
     type: 'POST',
-    data: message,
+    data: JSON.stringify(message),
     contentType: 'application/json',
     success: function (data) {
       console.log('chatterbox: Message sent');
@@ -30,10 +48,10 @@ app.send = function(message) {
 };
 
 app.fetch = function() {
-  $.get('http://parse.sfm8.hackreactor.com/chatterbox/classes/messages', function(data) { //FYI ajax method defaults to GET
-    // console.log($('a text')); //data = array of messageObj
-    // console.log($('<a href="http://www.walmart.com">clickme</a>'));
+  $.get(app.server, function(data) { //FYI ajax method defaults to GET
+    // console.log(data);
     for (var i = 0; i < data.results.length; i++) {
+      console.log(data.results[i]);
       app.renderMessage(data.results[i]);
     }
   });
@@ -80,7 +98,6 @@ app.renderMessage = function(message) {
       }
     }
   }
-  console.log(escapedStr);
   var messageNode = $('<p>' + escapedStr + '</p>');
   $('#chats').prepend(messageNode);
 };
