@@ -88,3 +88,10 @@ form input[type=text] {
     background-color: #0090da;
 }
 
+aside {
+    display: inline-block;
+}
+
+#chats {
+    display: inline-block;
+}
