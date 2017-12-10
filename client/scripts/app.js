@@ -2,14 +2,15 @@
 var app = {
   server: 'http://parse.sfm8.hackreactor.com/chatterbox/classes/messages',
   currentRoom: 'lobby',
-  rooms: ['lobby']
+  rooms: ['lobby'],
+  friendList: []
 };
 
-$(document).ready(function() {
+$(document).ready(() => {
   app.init();
 });
 
-app.init = function() {
+app.init = () => {
   //initiate the stuff
   app.fetch();
   $('#refreshButton').on('click', () => {
@@ -17,23 +18,8 @@ app.init = function() {
   });
   $('#sendButton').on('click', () => {
     // send what is filled out the form
-    var username = $('#usernameInput').val();
-    var messageBody = $('#messageInput').val();
-    if (username !== '' && messageBody !== '') {
-      var messageObj = {
-        username: username,
-        text: messageBody, 
-      };
-      if (app.currentRoom !== 'newRoom') {
-        messageObj.roomname = app.currentRoom;
-      } else {
-        messageObj.roomname = $('#roomInput').val();
-        // user needs to see messages from the new room
-        // make newly create room to be the selected room
-      }
-      // messageObj.roomname = (app.currentRoom !== 'newRoom') ? app.currentRoom : $('#roomInput').val();
-      app.send(messageObj);
-    }
+    app.handleSubmit();
+    console.log('line after handle submit call');
   });
   $('#roomSelect').change((e) => {
     let selectedName = $('#roomSelect').find(':selected').val();
@@ -51,33 +37,45 @@ app.init = function() {
   // setInterval(app.fetch, 5000);
 };
 
-app.clearForm = function() {
+app.handleSubmit = () => {
+  var username = $('#usernameInput').val();
+  var messageBody = $('#messageInput').val();
+  if (username !== '' && messageBody !== '') {
+    var messageObj = {
+      username: username,
+      text: messageBody 
+    };
+    messageObj.roomname = (app.currentRoom !== 'newRoom') ? app.currentRoom : $('#roomInput').val();
+    app.send(messageObj);
+  }
+};
+
+app.clearForm = () => {
   $('#usernameInput').val('');
   $('#messageInput').val('');
   $('#roomInput').val('');
 };
 
-app.send = function(message) {
+app.send = (message) => {
   $.ajax({
     // This is the url you should use to communicate with the parse API server.
     url: app.server,
     type: 'POST',
     data: JSON.stringify(message),
-    // data: message,
     contentType: 'application/json',
-    success: function (data) {
+    success: (data) => {
       app.clearForm();
       app.fetch();
       console.log('chatterbox: Message sent');
     },
-    error: function (data) {
+    error: (data) => {
       // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
       console.error('chatterbox: Failed to send message', data);
     }
   });  
 };
 
-app.fetch = function() {
+app.fetch = () => {
   console.log('started fetching');
   console.time('fetch time');
   $.ajax({
@@ -86,7 +84,7 @@ app.fetch = function() {
     data: {
       order: '-createdAt',
     },
-    success: function(data) { //FYI ajax method defaults to GET
+    success: (data) => { //FYI ajax method defaults to GET
       app.clearMessages();
       console.log('cleared messages');
       for (var i = 0; i < data.results.length; i++) {
@@ -94,7 +92,7 @@ app.fetch = function() {
       }
       console.timeEnd('fetch time');
     },
-    error: function (data) {
+    error: (data) => {
       // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
       console.error('chatterbox: Failed to send message', data);
       console.timeEnd('fetch time');
@@ -103,13 +101,52 @@ app.fetch = function() {
   
 };
 
-app.clearMessages = function() {
+app.clearMessages = () => {
   // clear messages from the DOM
   $('#chats').html('');
 };
 //message { text: '<img src='img.jpeg'></img>'}
-app.renderMessage = function(message) {
-  //  &, <, >, ", ', `, , !, @, $, %, (, ), =, +, {, }, [, and ]
+app.renderMessage = (message) => {
+  message.roomname = message.roomname || 'lobby';
+  if (message.text && message.roomname === app.currentRoom) {
+    var escapedMessage = app.escapeString(message.text);
+    var escapedUsername = app.escapeString(message.username);
+    
+    var messageNode = $('<div class="chat"></div>');
+    var usernameNode = $(`<p class="username">${escapedUsername}</p>`);
+    usernameNode.on('click', () => { //to add click handler to the specific instance of chat node
+      app.handleUsernameClick(escapedUsername);
+    });
+    
+    if (app.friendList.includes(escapedUsername)) {
+      usernameNode.addClass('friend');
+    }
+    messageNode.append(usernameNode);
+    messageNode.append($(`<p>${escapedMessage}</p>`));
+    $('#chats').append(messageNode);
+  }
+  app.renderRoom(message.roomname);
+};
+
+app.renderRoom = (roomName) => {
+  var escapedRoom = app.escapeString(roomName);
+  if (!app.rooms.includes(escapedRoom)) {
+    app.rooms.push(escapedRoom);
+    var roomNode = $(`<option value="${escapedRoom}">${escapedRoom}</option>`);
+    $('#roomSelect').append(roomNode);
+  }
+};
+
+app.handleUsernameClick = (username) => {
+  if (!app.friendList.includes(username)) {  
+    app.friendList.push(username);
+  } else {
+    app.friendList.splice(app.friendList.indexOf(username), 1);
+  }
+  app.fetch();
+};
+
+app.escapeString = (string) => {
   var escapers = {
     '&': '&#38;',
     '<': '&#60;',
@@ -131,31 +168,14 @@ app.renderMessage = function(message) {
     '[': '&#91;',
     ']': '&#93;'
   };
-  
-  message.roomname = message.roomname || 'lobby';
-  if (message.text && message.roomname === app.currentRoom) {
-    var escapedStr = '';
-    for (var i = 0; i < message.text.length; i++) {
-      if (escapers.hasOwnProperty(message.text[i])) {
-        escapedStr += escapers[message.text[i]];
-      } else {
-        escapedStr += message.text[i];
-      }
+  var escapedStr = '';
+  for (var i = 0; i < string.length; i++) {
+    if (escapers.hasOwnProperty(string[i])) {
+      escapedStr += escapers[string[i]];
+    } else {
+      escapedStr += string[i];
     }
-    var messageNode = $('<p>' + escapedStr + '</p>');
-    $('#chats').append(messageNode);
   }
-  app.renderRoom(message.roomname);
-};
-
-app.renderRoom = function(roomName) {
-  //grab all rooms from #roomSelector.children
-  //check if it exists
-  if (!app.rooms.includes(roomName)) {
-    app.rooms.push(roomName);
-    var roomNode = $(`<option value="${roomName}">${roomName}</option>`);
-    $('#roomSelect').append(roomNode);
-  }
-  
+  return escapedStr;
 };
 
