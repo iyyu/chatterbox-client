@@ -46,7 +46,7 @@ describe('chatterbox', function() {
         app.send(message);
         ajaxOptions = typeof $.ajax.args[0][0] === 'object' ? $.ajax.args[0][0] : $.ajax.args[0][1];
         var result = ajaxOptions.data;
-        expect(result).to.deep.equal(message);
+        expect(result).to.deep.equal(JSON.stringify(message));
         done();
       });
 
@@ -115,12 +115,12 @@ describe('chatterbox', function() {
       it('should try to send a message upon clicking submit', function() {
         sinon.spy(app, 'handleSubmit');
 
-        $('#message').val('Why so many Mel Brooks quotes?');
+        $('#messageInput').val('Why so many Mel Brooks quotes?');
 
         app.init();
-
-        $('#send .submit').trigger('submit');
-        expect(app.handleSubmit.calledOnce).to.be.true;
+        
+        $('#sendButton').trigger('click');
+        expect(app.handleSubmit.called).to.be.true;
 
         app.handleSubmit.restore();
       });
